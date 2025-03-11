@@ -4,27 +4,31 @@ import cors from "cors";
 import { Server } from "socket.io";
 
 const app = express();
-app.use(cors()); 
-
 const server = http.createServer(app);
+
+app.use(cors());
+
 const io = new Server(server, {
     cors: {
-        origin: "https://links.hvin.tech/", 
-        methods: ["GET", "POST"]
-    }
+        origin: "https://links.hvin.tech/",
+    },
 });
 
 const activeUsers = new Set();
 
 io.on("connection", (socket) => {
-    console.log(`User connected: ${socket.id}`);
-    activeUsers.add(socket.id);
-    io.emit("update_count", activeUsers.size);
+    const userIP = socket.handshake.headers["x-forwarded-for"] || socket.handshake.address;
+
+    if (!activeUsers.has(userIP)) {
+        activeUsers.add(userIP);
+        io.emit("new-user", userIP);
+    }
+
+    io.emit("active-users", activeUsers.size);
 
     socket.on("disconnect", () => {
-        console.log(`User disconnected: ${socket.id}`);
-        activeUsers.delete(socket.id);
-        io.emit("update_count", activeUsers.size);
+        activeUsers.delete(userIP); 
+        io.emit("active-users", activeUsers.size);
     });
 });
 
