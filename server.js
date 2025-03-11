@@ -17,7 +17,10 @@ const io = new Server(server, {
 const activeUsers = new Set();
 
 io.on("connection", (socket) => {
-    const userIP = socket.handshake.headers["x-forwarded-for"] || socket.handshake.address;
+    let userIP = socket.handshake.headers["x-forwarded-for"] || socket.handshake.address;
+    if (typeof userIP === "string") {
+        userIP = userIP.split(",")[0].trim();
+    }
 
     if (!activeUsers.has(userIP)) {
         activeUsers.add(userIP);
@@ -27,7 +30,7 @@ io.on("connection", (socket) => {
     io.emit("active-users", activeUsers.size);
 
     socket.on("disconnect", () => {
-        activeUsers.delete(userIP); 
+        activeUsers.delete(userIP);
         io.emit("active-users", activeUsers.size);
     });
 });
