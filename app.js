@@ -2,16 +2,40 @@ import express from "express";
 import http from "http";
 import cors from "cors";
 import { Server } from "socket.io";
+import fetch from "node-fetch";
 
 const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
+// Trust AWS Elastic Load Balancer/X-Forwarded-* headers
+app.set("trust proxy", true);
+
+// Basic health checks for Elastic Beanstalk
+app.get("/", async (_req, res) => {
+	const imageURL = "https://cdn.hv6.dev/images/logos/lighting_thunderbolt_red.jpg?q=50";
+
+    try{
+        const response = await fetch(imageURL);
+        const buffer = await response.arrayBuffer();
+
+        res.set("Content-Type", response.headers.get("Content-Type"));
+        res.send(Buffer.from(buffer));
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Error fetching image");
+    }
+});
+
+app.get("/health", (_req, res) => {
+	res.status(200).json({ status: "ok" });
+});
 
 const io = new Server(server, {
-    cors: {
-        origin: "https://links.hvin.tech/",
-    },
+	cors: {
+		origin: process.env.CORS_ORIGIN || "*",
+		methods: ["GET", "POST"],
+	},
 });
 
 const activeUsers = new Map();
@@ -46,6 +70,6 @@ io.on("connection", (socket) => {
 
 const PORT = process.env.PORT || 4000;
 
-server.listen(PORT, () => {
-    console.log(`✅ WebSocket Server running on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+    console.log(`✅ WebSocket Server running on http://0.0.0.0:${PORT}`);
 });
